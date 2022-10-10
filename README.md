@@ -2,6 +2,13 @@
 
 ## What is it?
 
+There're days, when you need to access a web-site hosted in Russia, which has prevented the out-of-the-country access.
+Unfortunately, some of the utility providers do this, yet you still need to pay for the utilities when you have fled
+the country.
+
+Yandex.Cloud allows you to create a low-cost preemptive virtual machine for under a rouble per hour. Instruction and the
+script in this repo help you create such a virtual machine.
+
 ## How to prepare?
 
 1. Set up Yandex Cloud account.
