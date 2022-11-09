@@ -3,8 +3,65 @@
 set -euo pipefail
 
 WG_PORT=43517
-CLIENTS=${1:-1}
-IP_ADDRESS_PREFIX=${2:-192.168.55}
+CLIENTS=1
+IP_ADDRESS_PREFIX=192.168.55
+QR_CODE_COUNT=0
+
+usage() {
+    echo "Usage: $0 [-c <1-254>] [-p <1-65535>] [-a <ip-prefix>] [-q <0-254>]" 1>&2
+    echo "" 1>&2
+    echo "  -c    the number of clients (default is $CLIENTS)" 1>&2
+    echo "  -p    the UDP port for the incoming connections (default is $WG_PORT)" 1>&2
+    echo "  -a    the IP network to use, first three octets (default is $IP_ADDRESS_PREFIX)" 1>&2
+    echo "  -q    how many configs needs to be displayed as QR code (useful for mobile clients; default is 0)" 1>&2
+    exit 1
+}
+
+while getopts ":c:p:a:q:" o; do
+    case "${o}" in
+        c)
+            CLIENTS=${OPTARG}
+
+            if ! ([[ $CLIENTS -gt 0 ]] && [[ $CLIENTS -lt 255 ]])
+            then
+                echo "Incorrect value for argument -c!" 1>&2
+                echo "" 1>&2
+
+                usage
+            fi
+            ;;
+        p)
+            WG_PORT=${OPTARG}
+
+            if ! ([[ $WG_PORT -gt 0 ]] && [[ $WG_PORT -lt 65536 ]])
+            then
+                echo "Incorrect value for argument -p!" 1>&2
+                echo "" 1>&2
+
+                usage
+            fi
+            ;;
+        a)
+            IP_ADDRESS_PREFIX=${OPTARG}
+            ;;
+        q)
+            QR_CODE_COUNT=${OPTARG}
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+if ! ([[ $QR_CODE_COUNT -ge 0 ]] && [[ $QR_CODE_COUNT -le $CLIENTS ]])
+then
+    echo "Incorrect value for argument -q!" 1>&2
+    echo "" 1>&2
+
+    usage
+fi
+
+shift $((OPTIND-1))
 
 echo 'Booting up a new server...'
 
@@ -29,7 +86,7 @@ sleep 30 # Waiting a few seconds to give the server a chance to boot up
 ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@$ip >/dev/null 2>&1 <<END
 sudo bash -eux <<SUDO
 apt update
-apt install -y wireguard
+apt install -y wireguard qrencode
 echo 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf
 echo 'net.ipv6.conf.all.forwarding = 1' >> /etc/sysctl.conf
 sysctl -p
@@ -71,8 +128,7 @@ echo 'done!'
 for i in $(seq 1 "$CLIENTS")
 do
     echo "Copy the following config to the client#${i}"
-    echo ''
-    cat <<CFG
+    cfg=$(cat <<CFG
 [Interface]
 Address = ${IP_ADDRESS_PREFIX}.$((i+1))/24
 DNS = 8.8.8.8
@@ -86,6 +142,15 @@ PersistentKeepalive = 30
 
 
 CFG
+)
+    if [ $i -le $QR_CODE_COUNT ]
+    then
+        echo ''
+        echo "$cfg" | ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} qrencode -t ansiutf8 2>/dev/null
+    else
+        echo ''
+        echo "$cfg"
+    fi
 done
 
 echo 'Press enter to remove the created instance, or Ctrl+C to keep at alive.'

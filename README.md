@@ -24,8 +24,14 @@ script in this repo help you create such a virtual machine.
 
 By default the command will generate a wireguard config for 1 client, using the
 subnet `192.168.55.0/24`. You can override the defaults by calling the script
-with the arguments: `./do.sh 10 10.0.0` — this will generate config for 10
+with the arguments: `./do.sh -c 10 -a 10.0.0` — this will generate config for 10
 clients with subnet `10.0.0.0/24`.
+
+It is also possible to request displaying the config as a QR-code, which can be
+useful when you need to configure VPN on mobile clients. Pass argument `-q 1` to
+generate one client config with the QR code, `-q 2` to generate two codes and so
+on. The value passed to `-q` argument must be greater than or equal to the value
+passed to `-c`.
 
 Below is the example produced by this script (so you'll know what to look for in
 the output):
