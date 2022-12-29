@@ -56,8 +56,9 @@ done
 if ! ([[ $QR_CODE_COUNT -ge 0 ]] && [[ $QR_CODE_COUNT -le $CLIENTS ]])
 then
     echo "Incorrect value for argument -q!" 1>&2
+    echo "Number of QR codes should NOT be greater than number of client" 1>&2
+    echo "Given arguments: QR codes count $QR_CODE_COUNT, clients count $CLIENTS" 1>&2
     echo "" 1>&2
-
     usage
 fi
 
