@@ -2,14 +2,17 @@
 
 set -euo pipefail
 
+INSTANCE_NAME=vpn
 WG_PORT=43517
 CLIENTS=1
 IP_ADDRESS_PREFIX=192.168.55
 QR_CODE_COUNT=0
+CLEANUP_REQUIRED=0
 
 usage() {
     echo "Usage: $0 [-c <1-254>] [-p <1-65535>] [-a <ip-prefix>] [-q <0-254>]" 1>&2
     echo "" 1>&2
+    echo "  -d    delete old vpn instance before the configuration" 1>&2
     echo "  -c    the number of clients (default is $CLIENTS)" 1>&2
     echo "  -p    the UDP port for the incoming connections (default is $WG_PORT)" 1>&2
     echo "  -a    the IP network to use, first three octets (default is $IP_ADDRESS_PREFIX)" 1>&2
@@ -17,7 +20,11 @@ usage() {
     exit 1
 }
 
-while getopts ":c:p:a:q:" o; do
+deleteInstance() {
+    yc compute instance delete "$INSTANCE_NAME"
+}
+
+while getopts ":c:p:a:q:d" o; do
     case "${o}" in
         c)
             CLIENTS=${OPTARG}
@@ -47,6 +54,9 @@ while getopts ":c:p:a:q:" o; do
         q)
             QR_CODE_COUNT=${OPTARG}
             ;;
+        d)
+            CLEANUP_REQUIRED=1
+            ;;
         *)
             usage
             ;;
@@ -64,9 +74,15 @@ fi
 
 shift $((OPTIND-1))
 
+if [ "$CLEANUP_REQUIRED" -eq 1 ]
+then
+    echo "Deleting the old $INSTANCE_NAME server..."
+    deleteInstance
+fi
+
 echo 'Booting up a new server...'
 
-ip=$(yc compute instance create --name vpn \
+ip=$(yc compute instance create --name $INSTANCE_NAME \
     --zone ru-central1-a \
     --ssh-key ~/.ssh/id_rsa.pub \
     --public-ip \
@@ -159,4 +175,4 @@ echo 'Press enter to remove the created instance, or Ctrl+C to keep at alive.'
 read
 
 echo 'Removing the instance... '
-yc compute instance delete vpn
+deleteInstance
