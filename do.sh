@@ -77,7 +77,7 @@ shift $((OPTIND-1))
 if [ "$CLEANUP_REQUIRED" -eq 1 ]
 then
     echo "Deleting the old $INSTANCE_NAME server..."
-    deleteInstance
+    deleteInstance || true
 fi
 
 echo 'Booting up a new server...'
