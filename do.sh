@@ -8,6 +8,7 @@ CLIENTS=1
 IP_ADDRESS_PREFIX=192.168.55
 QR_CODE_COUNT=0
 CLEANUP_REQUIRED=0
+OUTPUT_CONFIG='>/dev/null 2>&1'
 
 usage() {
     echo "Usage: $0 [-c <1-254>] [-p <1-65535>] [-a <ip-prefix>] [-q <0-254>]" 1>&2
@@ -17,6 +18,7 @@ usage() {
     echo "  -p    the UDP port for the incoming connections (default is $WG_PORT)" 1>&2
     echo "  -a    the IP network to use, first three octets (default is $IP_ADDRESS_PREFIX)" 1>&2
     echo "  -q    how many configs needs to be displayed as QR code (useful for mobile clients; default is 0)" 1>&2
+    echo "  -v    verbose output" 1>&2
     exit 1
 }
 
@@ -24,7 +26,7 @@ deleteInstance() {
     yc compute instance delete "$INSTANCE_NAME"
 }
 
-while getopts ":c:p:a:q:d" o; do
+while getopts ":c:p:a:q:dv" o; do
     case "${o}" in
         c)
             CLIENTS=${OPTARG}
@@ -56,6 +58,9 @@ while getopts ":c:p:a:q:d" o; do
             ;;
         d)
             CLEANUP_REQUIRED=1
+            ;;
+        v)
+            OUTPUT_CONFIG=''
             ;;
         *)
             usage
@@ -100,7 +105,7 @@ echo -n 'Configuring the server...'
 
 sleep 30 # Waiting a few seconds to give the server a chance to boot up
 
-ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@$ip >/dev/null 2>&1 <<END
+ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@$ip $OUTPUT_CONFIG <<END
 sudo bash -eux <<SUDO
 apt update
 apt install -y wireguard qrencode
