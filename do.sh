@@ -9,6 +9,8 @@ IP_ADDRESS_PREFIX=192.168.55
 QR_CODE_COUNT=0
 CLEANUP_REQUIRED=0
 OUTPUT_CONFIG='>/dev/null 2>&1'
+CONNECTION_ATTEMPTS=12
+ATTEMPT_TIMEOUT=5
 
 usage() {
     echo "Usage: $0 [-c <1-254>] [-p <1-65535>] [-a <ip-prefix>] [-q <0-254>]" 1>&2
@@ -19,6 +21,8 @@ usage() {
     echo "  -a    the IP network to use, first three octets (default is $IP_ADDRESS_PREFIX)" 1>&2
     echo "  -q    how many configs needs to be displayed as QR code (useful for mobile clients; default is 0)" 1>&2
     echo "  -v    verbose output" 1>&2
+    echo "  -i    initial connection attempts (default is $CONNECTION_ATTEMPTS)" 1>&2
+    echo "  -t    attempt timeout in seconds (default is $ATTEMPT_TIMEOUT)" 1>&2
     exit 1
 }
 
@@ -26,7 +30,7 @@ deleteInstance() {
     yc compute instance delete "$INSTANCE_NAME"
 }
 
-while getopts ":c:p:a:q:dv" o; do
+while getopts ":c:p:a:q:i:t:dv" o; do
     case "${o}" in
         c)
             CLIENTS=${OPTARG}
@@ -56,6 +60,12 @@ while getopts ":c:p:a:q:dv" o; do
         q)
             QR_CODE_COUNT=${OPTARG}
             ;;
+        i)
+            CONNECTION_ATTEMPTS=${OPTARG}
+            ;;
+        t)
+            ATTEMPT_TIMEOUT=${OPTARG}
+            ;;
         d)
             CLEANUP_REQUIRED=1
             ;;
@@ -82,7 +92,7 @@ shift $((OPTIND-1))
 if [ "$CLEANUP_REQUIRED" -eq 1 ]
 then
     echo "Deleting the old $INSTANCE_NAME server..."
-    deleteInstance
+    deleteInstance || true
 fi
 
 echo 'Booting up a new server...'
@@ -101,9 +111,34 @@ ip=$(yc compute instance create --name $INSTANCE_NAME \
 
 echo "New instance IP address: $ip"
 
-echo -n 'Configuring the server...'
+echo -n 'Waiting for the server to boot... '
 
-sleep 30 # Waiting a few seconds to give the server a chance to boot up
+attempts=0
+last_attempt_start=$(date +%s)
+
+# Waiting a few seconds to give the server a chance to boot up
+while ! ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "ConnectTimeout=$ATTEMPT_TIMEOUT" yc-user@$ip whoami >/dev/null 2>&1
+do
+    time_from_attempt_start=$(($(date +%s)-$last_attempt_start))
+    attempts=$((attempts+1))
+
+    if [ "$attempts" -ge "$CONNECTION_ATTEMPTS" ]
+    then
+        echo "Server connection timed out. Try running the script with a higher initial connection attempts value." >&2
+        exit 2
+    fi
+
+    if [ "$time_from_attempt_start" -lt "$ATTEMPT_TIMEOUT" ]
+    then
+        sleep $((ATTEMPT_TIMEOUT-time_from_attempt_start))
+    fi
+
+    last_attempt_start=$(date +%s)
+done
+
+echo 'done!'
+
+echo -n 'Configuring the server... '
 
 ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@$ip $OUTPUT_CONFIG <<END
 sudo bash -eux <<SUDO
