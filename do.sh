@@ -8,6 +8,7 @@ CLIENTS=1
 IP_ADDRESS_PREFIX=192.168.55
 QR_CODE_COUNT=0
 CLEANUP_REQUIRED=0
+REDIRECT_ERRORS_CONFIG='2>&1'
 OUTPUT_CONFIG='>/dev/null 2>&1'
 CONNECTION_ATTEMPTS=12
 ATTEMPT_TIMEOUT=5
@@ -70,6 +71,7 @@ while getopts ":c:p:a:q:i:t:dv" o; do
             CLEANUP_REQUIRED=1
             ;;
         v)
+            REDIRECT_ERRORS_CONFIG=''
             OUTPUT_CONFIG=''
             ;;
         *)
@@ -189,10 +191,10 @@ do
 [Interface]
 Address = ${IP_ADDRESS_PREFIX}.$((i+1))/24
 DNS = 8.8.8.8
-PrivateKey = $(ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} sudo cat /etc/wireguard/wg0_client${i}_privatekey 2>/dev/null)
+PrivateKey = $(ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} sudo cat /etc/wireguard/wg0_client${i}_privatekey $REDIRECT_ERRORS_CONFIG)
 
 [Peer]
-PublicKey = $(ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} sudo cat /etc/wireguard/wg0_publickey 2>/dev/null)
+PublicKey = $(ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} sudo cat /etc/wireguard/wg0_publickey $REDIRECT_ERRORS_CONFIG)
 AllowedIPs = 0.0.0.0/0, ::/0
 Endpoint = ${ip}:${WG_PORT}
 PersistentKeepalive = 30
@@ -203,7 +205,7 @@ CFG
     if [ $i -le $QR_CODE_COUNT ]
     then
         echo ''
-        echo "$cfg" | ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} qrencode -t ansiutf8 2>/dev/null
+        echo "$cfg" | ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} qrencode -t ansiutf8 $REDIRECT_ERRORS_CONFIG
     else
         echo ''
         echo "$cfg"
