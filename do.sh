@@ -5,6 +5,7 @@ set -euo pipefail
 INSTANCE_NAME=vpn
 WG_PORT=43517
 CLIENTS=1
+CLIENTS_COUNT_PROVIDED=0
 IP_ADDRESS_PREFIX=192.168.55
 QR_CODE_COUNT=0
 CLEANUP_REQUIRED=0
@@ -43,6 +44,8 @@ while getopts ":c:p:a:q:i:t:dv" o; do
 
                 usage
             fi
+
+            CLIENTS_COUNT_PROVIDED=1
             ;;
         p)
             WG_PORT=${OPTARG}
@@ -82,11 +85,16 @@ done
 
 if ! ([[ $QR_CODE_COUNT -ge 0 ]] && [[ $QR_CODE_COUNT -le $CLIENTS ]])
 then
-    echo "Incorrect value for argument -q!" 1>&2
-    echo "Number of QR codes should NOT be greater than number of client" 1>&2
-    echo "Given arguments: QR codes count $QR_CODE_COUNT, clients count $CLIENTS" 1>&2
-    echo "" 1>&2
-    usage
+    if [ "$CLIENTS_COUNT_PROVIDED" -eq 0 ]
+    then
+        CLIENTS=$QR_CODE_COUNT
+    else
+        echo "Incorrect value for argument -q!" 1>&2
+        echo "Number of QR codes should NOT be greater than number of client" 1>&2
+        echo "Given arguments: QR codes count $QR_CODE_COUNT, clients count $CLIENTS" 1>&2
+        echo "" 1>&2
+        usage
+    fi
 fi
 
 shift $((OPTIND-1))
