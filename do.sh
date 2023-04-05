@@ -101,7 +101,7 @@ ip=$(yc compute instance create --name $INSTANCE_NAME \
     --zone ru-central1-a \
     --ssh-key ~/.ssh/id_rsa.pub \
     --public-ip \
-    --create-boot-disk "name=vpn-disk,auto-delete=true,size=5,image-folder-id=standard-images,image-family=ubuntu-2204-lts" \
+    --create-boot-disk "name=vpn-disk,auto-delete=true,size=8,image-folder-id=standard-images,image-family=ubuntu-2204-lts" \
     --platform standard-v3 \
     --memory 1 \
     --cores 2 \
