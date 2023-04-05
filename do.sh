@@ -144,8 +144,8 @@ echo -n 'Configuring the server... '
 
 ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@$ip $OUTPUT_CONFIG <<END
 sudo bash -eux <<SUDO
-apt update
-apt install -y wireguard qrencode
+apt-get update
+apt-get install -y wireguard qrencode
 echo 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf
 echo 'net.ipv6.conf.all.forwarding = 1' >> /etc/sysctl.conf
 sysctl -p
