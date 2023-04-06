@@ -152,6 +152,12 @@ echo -n 'Configuring the server... '
 
 ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@$ip $OUTPUT_CONFIG <<END
 sudo bash -eux <<SUDO
+# Wait for server to finish booting
+while ps waux | egrep -q '/[u]sr/bin/cloud-init' || ps waux | egrep -q '/[u]sr/lib/ubuntu-release-upgrader/check-new-release'
+do
+    sleep 5
+done
+
 apt-get update
 apt-get install -y wireguard qrencode
 echo 'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf
