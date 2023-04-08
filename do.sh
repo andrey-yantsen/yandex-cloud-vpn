@@ -97,6 +97,24 @@ then
     fi
 fi
 
+if ! which yc >/dev/null 2>&1
+then
+    echo "Please install the Yandex Cloud CLI interface: https://cloud.yandex.com/en/docs/cli/quickstart."
+    exit 1
+fi
+
+if ! yc config get cloud-id > /dev/null 2>&1
+then
+    echo "Please ensure that you've initialized the Yandex Cloud CLI tool with 'yc init'."
+    exit 1
+fi
+
+if ! [ -f ~/.ssh/id_rsa.pub ]
+then
+    echo "Please generate an RSA ssh-key, storing the public key in '$HOME/.ssh/id_rsa.pub'."
+    exit 1
+fi
+
 shift $((OPTIND-1))
 
 if [ "$CLEANUP_REQUIRED" -eq 1 ]
