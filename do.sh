@@ -127,7 +127,7 @@ attempts=0
 last_attempt_start=$(date +%s)
 
 # Waiting a few seconds to give the server a chance to boot up
-while ! ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "ConnectTimeout=$ATTEMPT_TIMEOUT" yc-user@$ip whoami >/dev/null 2>&1
+while ! ssh -o LogLevel=ERROR -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "ConnectTimeout=$ATTEMPT_TIMEOUT" yc-user@$ip whoami >/dev/null 2>&1
 do
     time_from_attempt_start=$(($(date +%s)-$last_attempt_start))
     attempts=$((attempts+1))
@@ -150,13 +150,14 @@ echo 'done!'
 
 echo -n 'Configuring the server... '
 
-ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@$ip $OUTPUT_CONFIG <<END
-sudo bash -eux <<SUDO
+if ! ssh -o LogLevel=ERROR -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@$ip "sudo bash -eux $OUTPUT_CONFIG" <<END
 # Wait for server to finish booting
 while ps waux | egrep -q '/[u]sr/bin/cloud-init' || ps waux | egrep -q '/[u]sr/lib/ubuntu-release-upgrader/check-new-release'
 do
     sleep 5
 done
+
+ps wauxf
 
 apt-get update
 apt-get install -y wireguard qrencode
@@ -171,7 +172,7 @@ wg genkey | tee /etc/wireguard/wg0_privatekey | wg pubkey > /etc/wireguard/wg0_p
 
 cat > /etc/wireguard/wg0.conf <<WG
 [Interface]
-PrivateKey = \\\$(cat /etc/wireguard/wg0_privatekey)
+PrivateKey = \$(cat /etc/wireguard/wg0_privatekey)
 ListenPort = $WG_PORT
 Address = ${IP_ADDRESS_PREFIX}.1/24
 PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
@@ -179,13 +180,13 @@ PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -
 
 WG
 
-for i in \\\$(seq 1 $CLIENTS)
+for i in \$(seq 1 $CLIENTS)
 do
-    wg genkey | tee /etc/wireguard/wg0_client\\\${i}_privatekey | wg pubkey > /etc/wireguard/wg0_client\\\${i}_publickey
+    wg genkey | tee /etc/wireguard/wg0_client\${i}_privatekey | wg pubkey > /etc/wireguard/wg0_client\${i}_publickey
     cat >> /etc/wireguard/wg0.conf <<WG
 [Peer]
-PublicKey = \\\$(cat /etc/wireguard/wg0_client\\\${i}_publickey)
-AllowedIPs = ${IP_ADDRESS_PREFIX}.\\\$((i+1))/32
+PublicKey = \$(cat /etc/wireguard/wg0_client\${i}_publickey)
+AllowedIPs = ${IP_ADDRESS_PREFIX}.\$((i+1))/32
 PersistentKeepalive = 30
 
 WG
@@ -193,8 +194,18 @@ done
 
 systemctl enable wg-quick@wg0.service
 systemctl start wg-quick@wg0
-SUDO
 END
+then
+    server_init_result=$?
+    if [ "$OUTPUT_CONFIG" = "" ]
+    then
+        echo 'failed! Deleting the server now...'
+    else
+        echo 'failed! Run the script with `-v` argument to check the details. Deleting the server now...'
+    fi
+    deleteInstance
+    exit $server_init_result
+fi
 
 echo 'done!'
 
@@ -205,10 +216,10 @@ do
 [Interface]
 Address = ${IP_ADDRESS_PREFIX}.$((i+1))/24
 DNS = 8.8.8.8
-PrivateKey = $(ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} sudo cat /etc/wireguard/wg0_client${i}_privatekey $REDIRECT_ERRORS_CONFIG)
+PrivateKey = $(ssh -o LogLevel=ERROR -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} sudo cat /etc/wireguard/wg0_client${i}_privatekey $REDIRECT_ERRORS_CONFIG)
 
 [Peer]
-PublicKey = $(ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} sudo cat /etc/wireguard/wg0_publickey $REDIRECT_ERRORS_CONFIG)
+PublicKey = $(ssh -o LogLevel=ERROR -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} sudo cat /etc/wireguard/wg0_publickey $REDIRECT_ERRORS_CONFIG)
 AllowedIPs = 0.0.0.0/0, ::/0
 Endpoint = ${ip}:${WG_PORT}
 PersistentKeepalive = 30
@@ -219,7 +230,7 @@ CFG
     if [ $i -le $QR_CODE_COUNT ]
     then
         echo ''
-        echo "$cfg" | ssh -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} qrencode -t ansiutf8 $REDIRECT_ERRORS_CONFIG
+        echo "$cfg" | ssh -o LogLevel=ERROR -T -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" yc-user@${ip} qrencode -t ansiutf8 $REDIRECT_ERRORS_CONFIG
     else
         echo ''
         echo "$cfg"
